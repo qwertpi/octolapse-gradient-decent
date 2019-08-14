@@ -3,7 +3,9 @@ from concurrent.futures._base import Future as FutureType
 from copy import deepcopy
 from math import sqrt
 from os import system
+from pickle import dump
 from random import randint, choice, random
+from sys import exit
 from gcodeparser import GcodeParser
 from jax import value_and_grad
 from jax.experimental.optimizers import adam
@@ -27,6 +29,7 @@ snap_to_print = True if y in input("Would you like to enable snap to print? y/n 
 try:
     target_x = float(input("Enter the target x point or leave this blank for no target    ")
 except ValueError:
+    #-1 is used to represent no target point
     target_x = -1.0
 try:
     target_y = float(input("Enter the target y point or leave this blank for no target    ")
@@ -127,27 +130,11 @@ gradient = value_and_grad(loss)
 #gets the number of layers in the gcode file along with every point that extrusion and movement is occuring at
 num_layers, valid_points = GcodeParser(filename)
 
-#creates an animated plot of all the points we got from Gcode Parser
-fig = plt.figure()
-ax = plt.axes(xlim=(0, 150), ylim=(0, 150))
-valid_points_plot, = ax.plot([], [], "ko", markersize=5)
-def update(n):
-    x = []
-    y = []
-    for point_set in valid_points[n]:
-        x.append(point_set[0])
-        y.append(point_set[1])
-    valid_points_plot.set_data(x, y)
-animation = FuncAnimation(fig, update, frames=len(valid_points), interval=100)
-animation.save("valid.gif", writer="imagemagick")
-
-#use -1 to not have a target
-#set the target point you want here
-#exact values can help to break ties between getting near to the print and getting near to other snapshot points
+#exact values for targets can help to break ties between getting near to the print and getting near to other snapshot points
 target_points = [[target_x, target_y] for i in range(0, num_layers)]
 
 nearest_points = list(get_nearest_points(target_points, valid_points))
-#inits snapshot points within the points nearest to the target point(s)
+#inits snapshot points with the points within the print that are nearest to the target points
 snapshot_points = deepcopy(nearest_points)
 target_loss = loss(snapshot_points, target_points, nearest_points)
 
@@ -211,8 +198,10 @@ except:
     if snap_to_print:
         #replaces every snapshot point with the one nearest to it in the print
         snapshot_points = list(get_nearest_points(snapshot_points, valid_points))
+                     
     print(loss(snapshot_points, target_points, nearest_points))
 
+    #creates an anmated plot of the end state
     def update(n):
         snapshot_plot.set_data(snapshot_points[n][0], snapshot_points[n][1])
         nearest_plot.set_data(nearest_points[n][0], nearest_points[n][1])
@@ -223,4 +212,6 @@ except:
     nearest_plot, = ax.plot([], [], "go", markersize=5)
     animation = FuncAnimation(fig, update, frames=len(snapshot_points), interval=15)
     animation.save("end.gif", writer="imagemagick")
-    raise
+    with open('points.pickle', 'wb') as fp:
+        dump(snapshot_points, fp)
+    exit()
