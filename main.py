@@ -2,11 +2,8 @@ from concurrent.futures import ProcessPoolExecutor
 from concurrent.futures._base import Future as FutureType
 from copy import deepcopy
 from math import sqrt
-from os import system
 from pickle import dump
-from random import randint, choice, random
 from sys import exit
-from gcodeparser import GcodeParser
 from jax import value_and_grad
 from jax.experimental.optimizers import adam
 import matplotlib
@@ -14,27 +11,28 @@ matplotlib.use("AGG")
 import matplotlib.pyplot as plt
 plt.ioff()
 from matplotlib.animation import FuncAnimation
-from tqdm import tqdm_notebook as tqdm
+from tqdm import tqdm
+from gcodeparser import GcodeParser
 
-import warnings
-warnings.filterwarnings("ignore", message="No GPU/TPU found, falling back to CPU.")
+from warnings import filterwarnings
+filterwarnings("ignore", message="No GPU/TPU found, falling back to CPU.")
 
 ProcessPool = ProcessPoolExecutor()
 
 #user config
-filename = input("Please enter the filename of the gcode you wish to analyse    ")
+FILENAME = input("Please enter the FILENAME of the gcode you wish to analyse    ")
 #this is whether you want the exturder to never leave the print
 #the end result will likely be very similar to the starting state if this is enabled
-snap_to_print = True if y in input("Would you like to enable snap to print? y/n    ") else False
+SNAP_TO_PRINT = bool("y" in input("Would you like to enable snap to print? y/n    "))
 try:
-    target_x = float(input("Enter the target x point or leave this blank for no target    "))
+    TARGET_X = float(input("Enter the target x point or leave this blank for no target    "))
 except ValueError:
     #-1 is used to represent no target point
-    target_x = -1.0
+    TARGET_X = -1.0
 try:
-    target_y = float(input("Enter the target y point or leave this blank for no target    "))
+    TARGET_Y = float(input("Enter the target y point or leave this blank for no target    "))
 except ValueError:
-    target_y = -1.0
+    TARGET_Y = -1.0
                      
 #the square root in normal euclidean distance means we don't get a derivaitve in terms of x so this version is used in the loss
 def squared_distance(point_1, point_2):
@@ -62,7 +60,6 @@ def loss(snapshot_points, target_points, valid_points):
     :returns: float, the loss
     '''
     prev_snapshot_point = (-1, -1)
-    prev_valid_point = (-1, -1)
     loss = 0
     num = 0
     for snapshot_point, target_point, valid_point in zip(snapshot_points, target_points, valid_points):
@@ -87,7 +84,6 @@ def loss(snapshot_points, target_points, valid_points):
         num += 2
 
         prev_snapshot_point = snapshot_point
-        prev_valid_point = valid_point
     #takes the mean
     return loss / num
 
@@ -100,10 +96,7 @@ def nearest_point(point, points):
         y_distance = (point_1[1] - point_2[1])**2
         return sqrt((x_distance + y_distance))
     if len(points) > 2:
-        return nearest_point(point, [
-            nearest_point(point, points[:len(points) // 2]),
-            nearest_point(point, points[:len(points) // 2])
-        ])
+        return nearest_point(point, [nearest_point(point, points[:len(points) // 2]), nearest_point(point, points[:len(points) // 2])])
     else:
         min_dist = 1000
         best_point = (-1, -1)
@@ -128,15 +121,14 @@ def get_nearest_points(points, target_points):
 gradient = value_and_grad(loss)
 
 #gets the number of layers in the gcode file along with every point that extrusion and movement is occuring at
-num_layers, valid_points = GcodeParser(filename)
+NUM_LAYERS, VALID_POINTS = GcodeParser(FILENAME)
 
 #exact values for targets can help to break ties between getting near to the print and getting near to other snapshot points
-target_points = [[target_x, target_y] for i in range(0, num_layers)]
+TARGET_POINTS = [[TARGET_X, TARGET_Y] for i in range(0, NUM_LAYERS)]
 
-nearest_points = list(get_nearest_points(target_points, valid_points))
+nearest_points = list(get_nearest_points(TARGET_POINTS, VALID_POINTS))
 #inits snapshot points with the points within the print that are nearest to the target points
 snapshot_points = deepcopy(nearest_points)
-target_loss = loss(snapshot_points, target_points, nearest_points)
 
 #creates an animated plot of this inital state
 def update(n):
@@ -167,10 +159,10 @@ try:
         if not got_latest_points:
             snapshot_points = get_value(adam_state)
             #generators are awesome but they mess with JAX's autodifferentation so we convert to a list
-            nearest_points = list(get_nearest_points(snapshot_points, valid_points))
+            nearest_points = list(get_nearest_points(snapshot_points, VALID_POINTS))
             got_latest_points = True
         #gets the gradients and the loss
-        curr_loss, curr_grads = gradient(snapshot_points, target_points, nearest_points)
+        curr_loss, curr_grads = gradient(snapshot_points, TARGET_POINTS, nearest_points)
         i = 0
 
         adam_state = update(i, curr_grads, adam_state)
@@ -190,16 +182,16 @@ try:
 except:
     if not got_latest_points:
         snapshot_points = get_value(adam_state)
-        nearest_points = list(get_nearest_points(snapshot_points, valid_points))
+        nearest_points = list(get_nearest_points(snapshot_points, VALID_POINTS))
         got_latest_points = True
     #the processpool gets broken when we keyboard interrupt so it has to be recreated
     ProcessPool = ProcessPoolExecutor()
     
-    if snap_to_print:
+    if SNAP_TO_PRINT:
         #replaces every snapshot point with the one nearest to it in the print
-        snapshot_points = list(get_nearest_points(snapshot_points, valid_points))
+        snapshot_points = list(get_nearest_points(snapshot_points, VALID_POINTS))
                      
-    print(loss(snapshot_points, target_points, nearest_points))
+    print(loss(snapshot_points, TARGET_POINTS, nearest_points))
 
     #creates an anmated plot of the end state
     def update(n):
