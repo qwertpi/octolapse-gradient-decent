@@ -20,7 +20,7 @@ filterwarnings("ignore", message="No GPU/TPU found, falling back to CPU.")
 ProcessPool = ProcessPoolExecutor()
 
 #user config
-FILENAME = input("Please enter the FILENAME of the gcode you wish to analyse    ")
+FILENAME = input("Please enter the filename of the gcode you wish to analyse    ")
 #this is whether you want the exturder to never leave the print
 #the end result will likely be very similar to the starting state if this is enabled
 SNAP_TO_PRINT = bool("y" in input("Would you like to enable snap to print? y/n    "))
