@@ -20,12 +20,19 @@ warnings.filterwarnings("ignore", message="No GPU/TPU found, falling back to CPU
 ProcessPool = ProcessPoolExecutor()
 
 #user config
-#change this to the filename of the uploaded file
-filename = "low_poly_cat.gcode"
+filename = input("Please enter the filename of the gcode you wish to analyse    ")
 #this is whether you want the exturder to never leave the print
 #the end result will likely be very similar to the starting state if this is enabled
-snap_to_print = True
-
+snap_to_print = True if y in input("Would you like to enable snap to print? y/n    ") else False
+try:
+    target_x = float(input("Enter the target x point or leave this blank for no target    ")
+except ValueError:
+    target_x = -1.0
+try:
+    target_y = float(input("Enter the target y point or leave this blank for no target    ")
+except ValueError:
+    target_y = -1.0
+                     
 #the square root in normal euclidean distance means we don't get a derivaitve in terms of x so this version is used in the loss
 def squared_distance(point_1, point_2):
     x_distance = (point_1[0] - point_2[0])**2
@@ -137,7 +144,7 @@ animation.save("valid.gif", writer="imagemagick")
 #use -1 to not have a target
 #set the target point you want here
 #exact values can help to break ties between getting near to the print and getting near to other snapshot points
-target_points = [[0, 75] for i in range(0, num_layers)]
+target_points = [[target_x, target_y] for i in range(0, num_layers)]
 
 nearest_points = list(get_nearest_points(target_points, valid_points))
 #inits snapshot points within the points nearest to the target point(s)
