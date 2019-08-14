@@ -27,12 +27,12 @@ filename = input("Please enter the filename of the gcode you wish to analyse    
 #the end result will likely be very similar to the starting state if this is enabled
 snap_to_print = True if y in input("Would you like to enable snap to print? y/n    ") else False
 try:
-    target_x = float(input("Enter the target x point or leave this blank for no target    ")
+    target_x = float(input("Enter the target x point or leave this blank for no target    "))
 except ValueError:
     #-1 is used to represent no target point
     target_x = -1.0
 try:
-    target_y = float(input("Enter the target y point or leave this blank for no target    ")
+    target_y = float(input("Enter the target y point or leave this blank for no target    "))
 except ValueError:
     target_y = -1.0
                      
