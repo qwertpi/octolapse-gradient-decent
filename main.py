@@ -1,6 +1,7 @@
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from concurrent.futures._base import Future as FutureType
 from copy import deepcopy
+from functools import partial
 from math import sqrt
 from pickle import dump
 from sys import exit
@@ -12,12 +13,13 @@ import matplotlib.pyplot as plt
 plt.ioff()
 from matplotlib.animation import FuncAnimation
 from tqdm import tqdm
-from gcodeparser import GcodeParser
+from gcode_parser import GcodeParser
 
 from warnings import filterwarnings
 filterwarnings("ignore", message="No GPU/TPU found, falling back to CPU.")
 
 ProcessPool = ProcessPoolExecutor()
+ThreadPool = ThreadPoolExecutor()
 
 #user config
 FILENAME = input("Please enter the filename of the gcode you wish to analyse    ")
@@ -95,12 +97,18 @@ def nearest_point(point, points):
         x_distance = (point_1[0] - point_2[0])**2
         y_distance = (point_1[1] - point_2[1])**2
         return sqrt((x_distance + y_distance))
+    
+    def split_list(l, chunk_size):
+        return [l[i:i + chunk_size] for i in range(0, len(l), chunk_size)]
+    
     if len(points) > 2:
-        return nearest_point(point, [nearest_point(point, points[:len(points) // 2]), nearest_point(point, points[:len(points) // 2])])
+        split_points = split_list(points, 2)
+        possible_points = list(ThreadPool.map(partial(nearest_point, point), split_points))
+        return nearest_point(point, possible_points)
     else:
         min_dist = 1000
         best_point = (-1, -1)
-        if type(points[0]) != list and type(points[0]) != FutureType:
+        if type(points[0]) != list and type(points[0]) != tuple and type(points[0]) != FutureType:
             return points
         for possible_point in points:
             if type(possible_point) == FutureType:
@@ -115,7 +123,7 @@ def get_nearest_points(points, target_points):
     '''
     Runs nearest_point on each point in points, assings each call of nearest_point a CPU core
     '''
-    return ProcessPool.map(nearest_point, points, target_points)
+    return list(ProcessPool.map(nearest_point, points, target_points))
 
 
 gradient = value_and_grad(loss)
@@ -186,6 +194,7 @@ except:
         got_latest_points = True
     #the processpool gets broken when we keyboard interrupt so it has to be recreated
     ProcessPool = ProcessPoolExecutor()
+    ThreadPool = ThreadPoolExecutor()
     
     if SNAP_TO_PRINT:
         #replaces every snapshot point with the one nearest to it in the print
