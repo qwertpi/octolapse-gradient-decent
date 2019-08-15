@@ -26,10 +26,10 @@ For a summary of the licence go to https://tldrlegal.com/license/gnu-general-pub
 * tqdm (for training only) (likely to already be installed) `pip3 install tqdm`
 
 ## Usage
--1\. Download this repo (`git clone https://github.com/qwertpi/octolapse-gradient-decent.git && cd octolapse-gradient-decent`
+-1\. Download this repo (`git clone https://github.com/qwertpi/octolapse-gradient-decent.git && cd octolapse-gradient-decent`  
 0\. Install the prerequiestes (`pip3 install --user -U -r requirements.txt`)
 ### Compiling gcode parser
 1\. Run the command `python3 compile_gcode_parser.py  build_ext --inplace`
 ### Runing the program
-2\. Run main.py, answer the prompts provided and look at the `end.gif` file (red points are the snapshot point, green points are the nearest point within the print
+2\. Run main.py, answer the prompts provided and look at the `end.gif` file (red points are the snapshot point, green points are the nearest point within the print)
 
