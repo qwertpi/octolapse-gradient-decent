@@ -90,7 +90,11 @@ def loss(snapshot_points, target_points, valid_points):
     return loss / num
 
 def nearest_point(point, points):
-    '''Finds the point in points that is nearest to point'''
+    '''Finds the point in points that is nearest to point
+    :param point: list or tuple, the point you are aiming to be near to
+    :param points: list, the points you are chosing between
+    :returns: list or tuple (depends on what you passed), the nearest point
+    '''
 
     #based on https://github.com/OpenGenus/cosmos/blob/master/code/divide_conquer/src/closest_pair_of_points/closest_pair.py
     def calc_dist(point_1, point_2):
@@ -122,6 +126,9 @@ def nearest_point(point, points):
 def get_nearest_points(points, target_points):
     '''
     Runs nearest_point on each point in points, assings each call of nearest_point a CPU core
+    :param points: list, should have an element for every point you wish to find the nearest point to
+    :param target_poins: list, should have an element, consiting of a nested list of points to search through, for every point in points
+    :returns: list, the nearest point for every point in points
     '''
     return list(ProcessPool.map(nearest_point, points, target_points))
 
@@ -134,7 +141,7 @@ NUM_LAYERS, VALID_POINTS = GcodeParser(FILENAME)
 #exact values for targets can help to break ties between getting near to the print and getting near to other snapshot points
 TARGET_POINTS = [[TARGET_X, TARGET_Y] for i in range(0, NUM_LAYERS)]
 
-nearest_points = list(get_nearest_points(TARGET_POINTS, VALID_POINTS))
+nearest_points = get_nearest_points(TARGET_POINTS, VALID_POINTS)
 #inits snapshot points with the points within the print that are nearest to the target points
 snapshot_points = deepcopy(nearest_points)
 
@@ -161,24 +168,25 @@ progress_bar = tqdm()
 num_stops = 0
 prev_loss = 0
 got_latest_points = False
+
 try:
     while True:
         #gets the new points back from the gradient decent if we haven't already
         if not got_latest_points:
             snapshot_points = get_value(adam_state)
-            #generators are awesome but they mess with JAX's autodifferentation so we convert to a list
-            nearest_points = list(get_nearest_points(snapshot_points, VALID_POINTS))
+            nearest_points = get_nearest_points(snapshot_points, VALID_POINTS)
             got_latest_points = True
+            
         #gets the gradients and the loss
         curr_loss, curr_grads = gradient(snapshot_points, TARGET_POINTS, nearest_points)
-        i = 0
 
-        adam_state = update(i, curr_grads, adam_state)
+        adam_state = update(0, curr_grads, adam_state)
         got_latest_points = False
+        
         #we peridocly print the loss
         if epoch % 10 == 0:
             print(curr_loss)
-        #if we have reached the minimum (local or global)
+        #if we have reached the minimum loss
         if abs(prev_loss - curr_loss) < 0.00001:
             #quit
             raise KeyboardInterrupt
@@ -188,13 +196,14 @@ try:
         prev_loss = curr_loss
 
 except:
-    if not got_latest_points:
-        snapshot_points = get_value(adam_state)
-        nearest_points = list(get_nearest_points(snapshot_points, VALID_POINTS))
-        got_latest_points = True
     #the processpool gets broken when we keyboard interrupt so it has to be recreated
     ProcessPool = ProcessPoolExecutor()
     ThreadPool = ThreadPoolExecutor()
+    
+    if not got_latest_points:
+        snapshot_points = get_value(adam_state)
+        nearest_points = get_nearest_points(snapshot_points, VALID_POINTS)
+        got_latest_points = True
     
     if SNAP_TO_PRINT:
         #replaces every snapshot point with the one nearest to it in the print
@@ -213,6 +222,8 @@ except:
     nearest_plot, = ax.plot([], [], "go", markersize=5)
     animation = FuncAnimation(fig, update, frames=len(snapshot_points), interval=15)
     animation.save("end.gif", writer="imagemagick")
+    #saves the points
     with open('points.pickle', 'wb') as fp:
         dump(snapshot_points, fp)
+    #quits
     exit()
