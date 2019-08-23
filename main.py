@@ -189,13 +189,13 @@ try:
         #if we have reached the minimum loss
         if abs(prev_loss - curr_loss) < 0.00001:
             #quit
-            raise KeyboardInterrupt
+            break
 
         epoch += 1
         progress_bar.update(1)
         prev_loss = curr_loss
 
-except:
+finally:
     #the processpool gets broken when we keyboard interrupt so it has to be recreated
     ProcessPool = ProcessPoolExecutor()
     ThreadPool = ThreadPoolExecutor()
@@ -208,7 +208,10 @@ except:
     if SNAP_TO_PRINT:
         #replaces every snapshot point with the one nearest to it in the print
         snapshot_points = list(get_nearest_points(snapshot_points, VALID_POINTS))
-                     
+
+    with open('points.pickle', 'wb') as fp:
+        dump(snapshot_points, fp)
+
     print(loss(snapshot_points, TARGET_POINTS, nearest_points))
 
     #creates an anmated plot of the end state
@@ -223,7 +226,4 @@ except:
     animation = FuncAnimation(fig, update, frames=len(snapshot_points), interval=15)
     animation.save("end.gif", writer="imagemagick")
     #saves the points
-    with open('points.pickle', 'wb') as fp:
-        dump(snapshot_points, fp)
-    #quits
-    exit()
+    print("Finished!")
